@@ -1,0 +1,7 @@
+{
+  "remote_agent_runtime_id": "projects/YOUR_PROJECT_ID/locations/YOUR_LOCATION/reasoningEngines/YOUR_ENGINE_ID",
+  "deployment_target": "agent_runtime",
+  "is_a2a": false,
+  "agent_directory": "cyber_guardian",
+  "deployment_timestamp": "YYYY-MM-DDTHH:MM:SS.ffffff+00:00"
+}
