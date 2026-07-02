@@ -166,6 +166,14 @@ Execute the script:
 GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID uv run python generate_card.py
 ```
 
+*Alternatively, if you want to download the JSON card directly from the live deployed Agent Runtime instance instead of generating it via script, run this authenticated `curl` command:*
+
+```bash
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  "https://YOUR_REGION-aiplatform.googleapis.com/reasoningEngines/v1/projects/YOUR_PROJECT_ID/locations/YOUR_REGION/reasoningEngines/YOUR_ENGINE_ID/api/a2a/cyber_guardian/.well-known/agent-card.json" > agent-card.json
+```
+
+
 ### 2. Provision Public GCS Bucket & Upload the Card
 Create a public read-only Cloud Storage bucket and upload the generated JSON card:
 
