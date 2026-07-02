@@ -115,3 +115,79 @@ agents-cli run \
   --mode adk \
   "Run triage for hostname kvm01 and alert IOC_MATCH"
 ```
+
+---
+
+## Step 5: (Optional) Publish Publicly Accessible A2A Agent Card
+
+According to the [A2A Protocol Specification](https://a2a-protocol.org/latest/specification/), compliant agents must expose their details at `/.well-known/agent-card.json` to enable discovery. While the protocol standardizes the schema and URI path, it does not dictate network access policies. In default Agent Runtime deployments, the regional gateway enforces GCP IAM checks across all paths, blocking anonymous discovery.
+
+To support public discovery of the basic Agent Card while keeping the backend execution endpoints (`rpc_url`) fully authenticated, you can host a static copy of the card publicly on a GCS bucket:
+
+### 1. Generate the Agent Card JSON
+Create a Python script (e.g., `generate_card.py`) in your project to compile the agent card using the ADK SDK:
+
+```python
+import asyncio
+import json
+from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
+from a2a.types import AgentCapabilities, AgentExtension
+from cyber_guardian.agent import root_agent
+
+async def main():
+    capabilities = AgentCapabilities(
+        streaming=True,
+        extensions=[
+            AgentExtension(
+                uri="https://google.github.io/adk-docs/a2a/a2a-extension/",
+                description="Ability to use the new agent executor implementation",
+            )
+        ]
+    )
+    # Target URL pointing to your deployed Agent Runtime instance
+    rpc_url = "https://us-central1-aiplatform.googleapis.com/reasoningEngines/v1/projects/YOUR_PROJECT_ID/locations/YOUR_REGION/reasoningEngines/YOUR_ENGINE_ID/api/a2a/cyber_guardian"
+    
+    agent_card = await AgentCardBuilder(
+        agent=root_agent,
+        capabilities=capabilities,
+        rpc_url=rpc_url,
+        agent_version="0.1.0",
+    ).build()
+    
+    with open("agent-card.json", "w") as f:
+        f.write(agent_card.model_dump_json(indent=2))
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Execute the script:
+```bash
+GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID uv run python generate_card.py
+```
+
+### 2. Provision Public GCS Bucket & Upload the Card
+Create a public read-only Cloud Storage bucket and upload the generated JSON card:
+
+```bash
+# 1. Create a Cloud Storage bucket (using dashes, not underscores)
+gcloud storage buckets create gs://YOUR_BUCKET_NAME \
+  --project=YOUR_PROJECT_ID \
+  --location=YOUR_REGION \
+  --no-public-access-prevention \
+  --uniform-bucket-level-access
+
+# 2. Grant public read permission (allUsers) to objects in the bucket
+gcloud storage buckets add-iam-policy-binding gs://YOUR_BUCKET_NAME \
+  --member=allUsers \
+  --role=roles/storage.objectViewer \
+  --project=YOUR_PROJECT_ID
+
+# 3. Upload the card with the correct application/json content type
+gcloud storage cp agent-card.json gs://YOUR_BUCKET_NAME/agent-card.json \
+  --content-type=application/json \
+  --project=YOUR_PROJECT_ID
+```
+
+You can now share the public bucket link (e.g. `https://storage.googleapis.com/YOUR_BUCKET_NAME/agent-card.json`) for agent discovery, while actual runtime queries remain authenticated.
+
